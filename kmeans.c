@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <math.h>
 
 #ifndef INFINITY
@@ -18,6 +17,29 @@ struct vector {
     struct vector *next;
     struct cord *cords;
 };
+
+/* Checking whether the number is natural*/
+int is_positive_integer(const char *str) {
+    if (*str == '\0') return 0;  
+
+    while (*str) {
+        if (*str == '.') {
+            str++;
+            while (*str) {
+                if (*str != '0') return 0;  
+                str++;
+            }
+            return 1;
+
+        } else if (*str < '0' || *str > '9') {
+        return 0;
+    }
+
+        str++;
+    }
+
+    return 1;
+}
 
 /* Copying a linked list of coordinates */
 struct cord* copy_cords(struct cord *source) {
@@ -115,20 +137,29 @@ int main(int argc, char **argv) {
     /* Input arguments check */
     if (argc != 2 && argc != 3) {
         printf("An Error Has Occurred\n");
-        return 1;
+        exit(1);
     }
 
     k = atoi(argv[1]);
     if (k <= 1) {
         printf("Incorrect number of clusters!\n");
-        return 1;
+        exit(1);
     }
-
+       /* Checking whether k is a natural number*/
+    if (!is_positive_integer(argv[1])) {
+        printf("Incorrect number of clusters!\n");
+        exit(1);
+    }
+    /* Checking whether iter is a natural number*/
     if (argc == 3) {
         iter = atoi(argv[2]);
         if (iter <= 1 || iter >= 1000) {
             printf("Incorrect maximum iteration!\n");
-            return 1;
+            exit(1);
+        }
+        if (!is_positive_integer(argv[2])) {
+            printf("Incorrect maximum iteration!\n");
+            exit(1);
         }
     }
 
