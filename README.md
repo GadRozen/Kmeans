@@ -4,7 +4,7 @@
 This project implements the **K-Means clustering algorithm** entirely in **C**, without any external libraries.  
 It demonstrates strong understanding of **memory management**, **numerical computation**, and **algorithm design** in a low-level language.
 
-K-Means is a foundational unsupervised learning algorithm that partitions data into *k* clusters by minimizing the within-cluster variance (sum of squared distances).
+K-Means is a foundational learning algorithm that partitions data into *k* clusters by minimizing the within-cluster variance (sum of squared distances).
 
 ---
 
