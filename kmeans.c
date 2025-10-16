@@ -1,151 +1,280 @@
-# 🧠 K-Means Clustering in C
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
 
-### 💡 Overview
-This project implements the **K-Means clustering algorithm** entirely in **C**, without any external libraries.  
-It demonstrates strong understanding of **memory management**, **numerical computation**, and **algorithm design** in a low-level language.
+#ifndef INFINITY
+#define INFINITY (1.0/0.0)
+#endif
 
-K-Means is a foundational unsupervised learning algorithm that partitions data into *k* clusters by minimizing the within-cluster variance (sum of squared distances).
+#define EPSILON 0.001
 
----
+struct cord {
+    double value;
+    struct cord *next;
+};
 
-## ⚙️ Features
-- Pure C implementation — no dependencies, no dynamic arrays.
-- Dynamically builds vectors using linked lists for arbitrary input dimensions.
-- Handles numeric input directly from `stdin`.
-- Performs complete K-Means iteration loop:
-  - Assign points to nearest centroid  
-  - Recompute centroids as mean of assigned points  
-  - Stops early when centroids stabilize (`Δ < EPSILON`)
-- Supports configurable number of clusters `k` and maximum iterations.
+struct vector {
+    struct vector *next;
+    struct cord *cords;
+};
 
----
+/* Checking whether the number is natural*/
+int is_positive_integer(const char *str) {
+    if (*str == '\0') return 0;  
 
-## 🧩 Core Algorithm
+    while (*str) {
+        if (*str == '.') {
+            str++;
+            while (*str) {
+                if (*str != '0') return 0;  
+                str++;
+            }
+            return 1;
 
-1. **Input**  
-   Reads data points from standard input, each line representing one vector with comma-separated coordinates.  
-   Example:
-   ```
-   1.0,2.0,3.5
-   4.1,0.2,8.9
-   2.5,3.0,4.0
-   ```
+        } else if (*str < '0' || *str > '9') {
+        return 0;
+    }
 
-2. **Initialization**  
-   The first *k* vectors are chosen as the initial centroids.
+        str++;
+    }
 
-3. **Iteration Loop**  
-   For up to `iter` iterations (default = 400):
-   - Assign each vector to the closest centroid (using **Euclidean distance**).
-   - Recompute each centroid as the average of its assigned points.
-   - Stop if centroids move less than `EPSILON = 0.001`.
+    return 1;
+}
 
-4. **Output**  
-   Prints the final centroids, one per line, with coordinates separated by commas.
+/* Copying a linked list of coordinates */
+struct cord* copy_cords(struct cord *source) {
+    struct cord *head, *curr;
+    if (!source) return NULL;
 
----
+    head = malloc(sizeof(struct cord));
+    curr = head;
+    curr->value = source->value;
+    source = source->next;
 
-## 🧮 Key Functions
-| Function | Description |
-|-----------|--------------|
-| `delta_between_vectors(a, b)` | Calculates Euclidean distance between two vectors. |
-| `add_vector(sum, v)` | Adds two vectors coordinate-wise. |
-| `divide_vector(v, n)` | Divides each coordinate by `n` (computes mean). |
-| `copy_cords(source)` | Creates a deep copy of a coordinate list. |
-| `is_positive_integer(str)` | Validates numeric input for `k` and iterations. |
-| `free_cords()` / `free_vectors()` | Frees dynamically allocated memory safely. |
+    while (source) {
+        curr->next = malloc(sizeof(struct cord));
+        curr = curr->next;
+        curr->value = source->value;
+        source = source->next;
+    }
+    curr->next = NULL;
+    return head;
+}
 
----
+/* Add one vector to another */
+void add_vector(struct cord *sum, struct cord *v) {
+    while (sum && v) {
+        sum->value += v->value;
+        sum = sum->next;
+        v = v->next;
+    }
+}
 
-## 🧠 Design Highlights
-- **Dynamic Linked Lists** for representing vectors of unknown dimensionality.  
-  Each vector is a linked list of coordinates (`struct cord`), and the dataset is a linked list of vectors (`struct vector`).
-- **Explicit Memory Management** — all allocations are paired with `free()` calls.
-- **Robust Input Checking** — rejects invalid or non-positive integers for `k` and `iter`.
-- **Numerical Stability** — convergence threshold `EPSILON = 0.001` ensures graceful stopping.
-- **Readable Modular Code** — each mathematical step is encapsulated in its own function.
+/* Divide vector by a scalar */
+void divide_vector(struct cord *v, int divisor) {
+    while (v) {
+        v->value /= divisor;
+        v = v->next;
+    }
+}
 
----
+/* Euclidean distance between vectors */
+double delta_between_vectors(struct cord *a, struct cord *b) {
+    double sum = 0.0, delta = 0.0;
+    while (a && b) {
+        delta = a->value - b->value;
+        sum += delta * delta;
+        a = a->next;
+        b = b->next;
+    }
+    return sqrt(sum);
+}
 
-## 🚀 Usage
+/* Print a vector */
+void print_vector(struct cord *cords) {
+    while (cords) {
+        printf("%.4f", cords->value);
+        if (cords->next) printf(",");
+        cords = cords->next;
+    }
+    printf("\n");
+}
 
-### Compile:
-```bash
-gcc -Wall -ansi -pedantic -lm kmeans.c -o kmeans
-```
+/* Free a list of cords */
+void free_cords(struct cord *head) {
+    struct cord *temp;
+    while (head) {
+        temp = head;
+        head = head->next;
+        free(temp);
+    }
+}
 
-### Run:
-```bash
-./kmeans <k> [max_iter] < data.txt
-```
+/* Free a list of vectors */
+void free_vectors(struct vector *head) {
+    struct vector *temp;
+    while (head) {
+        free_cords(head->cords);
+        temp = head;
+        head = head->next;
+        free(temp);
+    }
+}
 
-**Example:**
-```bash
-./kmeans 3 100 < points.txt
-```
+int main(int argc, char **argv) {
+    int k, iter = 400;
+    int i, n = 0, count_iter, stop;
+    int *counts;
+    int min_index;
+    double val, min_dist, delta;
+    char ch;
 
-Output:
-```
-1.1250,3.5460,2.8000
-5.0870,1.2210,8.4560
-3.3340,2.1240,5.6780
-```
+    struct vector *head_vec, *curr_vec, *vec_iter;
+    struct cord *head_cord, *curr_cord;
+    struct cord **centroids;
+    struct cord **sums;
 
----
+    /* Input arguments check */
+    if (argc != 2 && argc != 3) {
+        printf("An Error Has Occurred\n");
+        exit(1);
+    }
 
-## 🧪 Testing Tips
-- Validate on simple datasets (e.g. points in 2D clusters).  
-- Test edge cases:
-  - `k >= n` → should print an error.
-  - Non-numeric input → triggers “Incorrect number of clusters!”.
-  - Empty input → handled gracefully.
-- Verify convergence: small `EPSILON` leads to more accurate centroids, larger to faster termination.
+    k = atoi(argv[1]);
+    if (k <= 1) {
+        printf("Incorrect number of clusters!\n");
+        exit(1);
+    }
+       /* Checking whether k is a natural number*/
+    if (!is_positive_integer(argv[1])) {
+        printf("Incorrect number of clusters!\n");
+        exit(1);
+    }
+    /* Checking whether iter is a natural number*/
+    if (argc == 3) {
+        iter = atoi(argv[2]);
+        if (iter <= 1 || iter >= 1000) {
+            printf("Incorrect maximum iteration!\n");
+            exit(1);
+        }
+        if (!is_positive_integer(argv[2])) {
+            printf("Incorrect maximum iteration!\n");
+            exit(1);
+        }
+    }
 
----
+    /* Reading vectors from input */
+    head_vec = malloc(sizeof(struct vector));
+    curr_vec = head_vec;
+    curr_vec->next = NULL;
 
-## 🧰 Example Input and Output
+    head_cord = malloc(sizeof(struct cord));
+    curr_cord = head_cord;
+    curr_cord->next = NULL;
 
-**Input:**
-```
-1.0,1.0
-1.5,2.0
-3.0,4.0
-5.0,7.0
-3.5,5.0
-4.5,5.0
-3.5,4.5
-```
+    while (scanf("%lf%c", &val, &ch) == 2) {
+        curr_cord->value = val;
+        if (ch == '\n') {
+            curr_vec->cords = head_cord;
+            curr_vec->next = malloc(sizeof(struct vector));
+            curr_vec = curr_vec->next;
+            curr_vec->next = NULL;
+            curr_vec->cords = NULL;
+            head_cord = malloc(sizeof(struct cord));
+            curr_cord = head_cord;
+            curr_cord->next = NULL;
+            curr_cord->value = 0.0;
+            n++;
+            continue;
+        } else {
+            curr_cord->next = malloc(sizeof(struct cord));
+            curr_cord = curr_cord->next;
+            curr_cord->next = NULL;
+            curr_cord->value = 0.0;
+        }
+    }       
 
-**Command:**
-```bash
-./kmeans 2 < points.txt
-```
+    if (k >= n) {
+        printf("Incorrect number of clusters!\n");
+        free_vectors(head_vec);
+        free(head_cord);
+        return 1;
+    }
 
-**Output:**
-```
-1.2500,1.5000
-4.1000,5.4000
-```
+    /* Initialize centroids with first k vectors */
+    vec_iter = head_vec;
+    centroids = calloc(k, sizeof(struct cord *));
+    for (i = 0; i < k; i++) {
+        centroids[i] = copy_cords(vec_iter->cords);
+        vec_iter = vec_iter->next;
+    }
 
----
+    /* Main K-Means loop */
+    for (count_iter = 0; count_iter < iter; count_iter++) {
+        counts = calloc(k, sizeof(int));
+        sums = calloc(k, sizeof(struct cord *));
+        for (i = 0; i < k; i++) {
+            struct cord *curr, *ref;
+            sums[i] = calloc(1, sizeof(struct cord));
+            curr = sums[i];
+            ref = centroids[i];
+            while (ref->next) {
+                curr->next = calloc(1, sizeof(struct cord));
+                curr = curr->next;
+                ref = ref->next;
+            }
+        }
 
-## 📈 Complexity
-| Step | Time | Space |
-|------|------|--------|
-| Distance computation | O(n·k·d) | O(d) |
-| Update centroids | O(n·d) | O(k·d) |
-| Overall | **O(iter · n · k · d)** | O(n + k·d) |
+        /* Assign vectors to nearest centroid */
+        vec_iter = head_vec;
+        while (vec_iter && vec_iter->cords) {
+            min_dist = INFINITY;
+            min_index = 0;
 
-Where `n` = number of points, `k` = clusters, `d` = dimensions.
+            for (i = 0; i < k; i++) {
+                delta = delta_between_vectors(vec_iter->cords, centroids[i]);
+                if (delta < min_dist) {
+                    min_dist = delta;
+                    min_index = i;
+                }
+            }
 
----
+            add_vector(sums[min_index], vec_iter->cords);
+            counts[min_index]++;
+            vec_iter = vec_iter->next;
+        }
 
-## 👩‍💻 Authors
-**Gad Rozen** and **Hila Etzioni**  
-Developed as part of the *Data Structures* course.
+        /* Recompute centroids */
+        stop = 1;
+        for (i = 0; i < k; i++) {
+            if (counts[i] != 0)
+                divide_vector(sums[i], counts[i]);
 
----
+            delta = delta_between_vectors(centroids[i], sums[i]);
+            if (delta >= EPSILON)
+                stop = 0;
 
-## 📜 License
-For academic and interview demonstration use.  
-Please attribute the authors if reused.
+            free_cords(centroids[i]);
+            centroids[i] = copy_cords(sums[i]);
+            free_cords(sums[i]);
+        }
+
+        free(sums);
+        free(counts);
+
+        if (stop)
+            break;
+    }
+
+    /* Output centroids */
+    for (i = 0; i < k; i++) {
+        print_vector(centroids[i]);
+        free_cords(centroids[i]);
+    }
+
+    free(centroids);
+    free_vectors(head_vec);
+    free(head_cord);
+
+    return 0;
+}
