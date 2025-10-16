@@ -140,12 +140,12 @@ Where `n` = number of points, `k` = clusters, `d` = dimensions.
 
 ---
 
-## 👩‍💻 Authors
-**Gad Rozen** and **Hila Etzioni**  
-Developed as part of the *Data Structures* course.
+## 👩‍💻 Author
+**Gad Rozen** 
+Developed as part of the *Software project* course.
 
 ---
 
 ## 📜 License
 For academic and interview demonstration use.  
-Please attribute the authors if reused.
+
